@@ -7,7 +7,7 @@ import tensorflow as tf
 import  numpy as np
 weight_decay = 5e-4
 from keras import layers
-
+from keras.applications.xception import Xception
 # import keras
 # from keras.models import Model
 # from keras.layers import Dense, Conv2D, BatchNormalization, Activation
@@ -49,6 +49,31 @@ class ShakeShake(tf.keras.layers.Layer):
 
 def swish(x):
     return tf.keras.backend.sigmoid(x) * x
+
+
+def xception_block(x,drop_connect_rate=0.2,num_filters=16):
+    residual = x
+    channel_axis='channel_last'
+    x = tf.keras.layers.Activation('elu')(x)
+    x = tf.keras.layers.SeparableConv2D(num_filters, (3, 3),
+                               padding='same',
+                               use_bias=False,)(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation('elu')(x)
+    x = tf.keras.layers.SeparableConv2D(num_filters, (3, 3),
+                               padding='same',
+                               use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation('elu')(x)
+    x = tf.keras.layers.SeparableConv2D(num_filters, (3, 3),
+                               padding='same',
+                               use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    # x = DropConnect(drop_connect_rate)(x)
+    # x = tf.keras.layers.add([x, residual])
+    x = ShakeShake()([x, residual])
+    return x
+
 
 
 def get_random_eraser(p=0.5, s_l=0.02, s_h=0.4, r_1=0.3, r_2=1/0.3, v_l=0, v_h=255, pixel_level=False):
@@ -309,18 +334,23 @@ def WideResNet(depth=40, width=10,num_classes=10, dropout=0.3):
     x = tf.keras.layers.BatchNormalization()(input)
     x = conv3x3(x, 16)
     for _ in range(layer):
-        # x = BasicBlock(x, 16*width, dropout)
-        x = MBConvBlock(16,16*width,kernel_size=3, strides=(1, 1), se_ratio=0.25, expand_ratio=6,id_skip=True,drop_connect_rate=0.2)(x)
+        x = BasicBlock(x, 16*width, dropout)
+        # x = MBConvBlock(16,16*width,kernel_size=3, strides=(1, 1), se_ratio=0.25, expand_ratio=6,id_skip=True,drop_connect_rate=0.2)(x)
+        # x = xception_block(x,0.2,16)
+
+
     x = BasicBlock(x, 32*width, dropout, 2)
     for _ in range(layer-1):
-        # x = BasicBlock(x, 32*width, dropout)
-        x = MBConvBlock(32,32*depth,kernel_size=3, strides=(2,2), se_ratio=0.25, expand_ratio=6,id_skip=True,drop_connect_rate=0.2)(x)
+        x = BasicBlock(x, 32*width, dropout)
+        # x = xception_block(x,0.2,32*width)
+        # x = MBConvBlock(32,32*depth,kernel_size=3, strides=(2,2), se_ratio=0.25, expand_ratio=6,id_skip=True,drop_connect_rate=0.2)(x)
     #
     x = BasicBlock(x, 64*width, dropout, 2)
     for _ in range(layer-1):
-        # x = BasicBlock(x, 64*width, dropout)
-        x = MBConvBlock(64, 64 * depth, kernel_size=3, strides=(1, 1), se_ratio=0.25, expand_ratio=6, id_skip=True,
-                        drop_connect_rate=0.2)(x)
+        x = BasicBlock(x, 64*width, dropout)
+        # x = xception_block(x,0.2,64*width)
+        # x = MBConvBlock(64, 64 * depth, kernel_size=3, strides=(1, 1), se_ratio=0.25, expand_ratio=6, id_skip=True,
+        #                 drop_connect_rate=0.2)(x)
 
     x = tf.keras.layers.BatchNormalization()(x)
     # x = SwitchableNormalization()(x)
